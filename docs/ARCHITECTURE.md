@@ -5,30 +5,24 @@
 ```mermaid
 flowchart TD
     A["1. Enter spins"] --> B["2. Analyse wheel"]
-    B --> C["3. Configure coverage"]
-    C --> D["4. Generate ticket"]
-    D --> E["Log result or end session"]
+    B --> C["3. Choose sector and bets"]
+    C --> D["4. Generate full-coverage ticket"]
 ```
 
 ## System boundaries
 
-Roulette JARVIS separates interface state from deterministic domain logic.
-
 | Layer | Responsibility |
 |---|---|
-| Presentation | Mobile steps, wheel SVG, table keypad, ticket and outcomes |
-| Session state | Spin history, settings, budget, spin count and current ticket |
-| Wheel engine | European order, circular distance, heat and sector scoring |
-| Betting engine | Legal plenos/caballos, coverage and ticket optimisation |
-| Maths engine | Probability, gross returns, net results and exposure |
+| Presentation | Mobile steps, wheel, keypad, configuration, ticket and outcomes |
+| Local state | Spin history, sector size, betting style and chip value |
+| Wheel engine | European order, circular distance, heat and 12/14/16-pocket scoring |
+| Betting engine | Legal plenos, caballos, tercios, cuartas and full-sector coverage |
+| Maths engine | Chips required, ticket cost, probability and net results |
 | Rules configuration | Casino-specific zero splits and future variants |
-| Persistence | Local device storage only in the MVP |
 
-## Two distinct graphs
+## Two distinct models
 
 ### Physical European wheel
-
-The canonical clockwise order is:
 
 ```
 0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30,
@@ -36,46 +30,36 @@ The canonical clockwise order is:
 28, 12, 35, 3, 26
 ```
 
-It supports circular distance, neighbour weighting, heatmap placement, and consecutive windows that wrap across zero.
+This model supports circular distance, neighbour weighting, heatmap placement, and consecutive windows that wrap across zero.
 
-### Betting table
+### European betting table
 
-For 1–36, a split is legal when the two numbers:
+The second model validates legal table shapes. A physical-wheel neighbour pair is not automatically a legal caballo.
 
-- differ by 3 vertically; or
-- differ by 1 horizontally without crossing a row boundary.
+## Optimiser contract
 
-Zero splits are configuration because table rules can vary. The application must never infer that two wheel neighbours form a legal split.
+Inputs:
 
-## Suggested portable module layout
+- selected 12-, 14-, or 16-pocket sector;
+- one of the three allowed betting-style sets;
+- €5 or €10 chip value.
 
-```
-app/          Mobile step routes and layout
-components/   Wheel, table, ticket and session UI
-core/wheel/   Circular order, heat and sector analysis
-core/betting/ Legal bets, strategies and optimiser
-core/maths/   Probability and payouts
-core/session/ Budget and spin-limit rules
-config/       Casino-specific rules
-store/        Local session state
-tests/        Rules, optimiser and payout tests
-docs/         Portfolio and engineering documentation
-```
+Outputs:
 
-## Local-first rationale
+- legal bet list;
+- automatically calculated chips required;
+- total cost;
+- selected sector and all unique covered numbers;
+- result-by-result net calculations.
 
-- Works with weak venue connectivity.
-- Requires no account or database.
-- Keeps session information on the device.
-- Minimises operational cost and deployment complexity.
-- Makes the demo easy to test without real-money integration.
+The optimiser cannot stop early: plenos provide a guaranteed legal fallback until every target pocket is covered.
 
 ## Testing priorities
 
-1. All generated caballos are legal.
-2. Circular windows wrap correctly.
-3. Unique coverage is calculated without accidental duplication.
-4. Tickets never exceed the configured chip limit.
-5. Every pocket produces the correct gross return and net result.
-6. Budget limits block overexposure.
+1. Circular sectors wrap correctly.
+2. All generated caballos, tercios, and cuartas are legal.
+3. Every selected sector pocket is covered.
+4. Chip count equals the number of one-chip bets.
+5. Cost is correct for both chip values.
+6. Every pocket produces the correct gross return and net result.
 7. Mobile controls remain usable at narrow viewport widths.
