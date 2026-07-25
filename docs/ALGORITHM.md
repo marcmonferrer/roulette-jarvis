@@ -2,106 +2,73 @@
 
 ## 1. Sector analysis
 
-For each of the 37 possible starting pockets, the engine evaluates a circular window of 12 or 13 consecutive wheel pockets.
+For each of the 37 possible starting pockets, the engine evaluates a circular window of **12, 14, or 16 consecutive wheel pockets**.
 
-A sector score may combine:
+The score combines direct hits, light recency weighting, and small neighbour influence. The highest-scoring window describes the supplied history; it does not change the probability of the next independent spin.
 
-- direct hits inside the window;
-- recency weights, with newer visible spins weighted slightly more;
-- a small influence from neighbouring wheel pockets;
-- stable tie-breaking based on ranked central pockets.
+| Sector size | Physical-wheel coverage |
+|---:|---:|
+| 12 | 32.43% |
+| 14 | 37.84% |
+| 16 | 43.24% |
 
-The winning window is the highest-scoring observed-history sector.
+## 2. Legal bet candidates
 
-This score describes the supplied sample. It is not a claim that the sector has a greater probability on the next independent spin.
+The engine generates candidates allowed by the selected betting style:
 
-## 2. Candidate bets
+- **Pleno:** one number.
+- **Caballo:** two table-adjacent numbers.
+- **Tercio:** one legal three-number row.
+- **Cuarta:** one legal four-number corner.
 
-Each candidate is represented as:
+Physical neighbours on the wheel are never assumed to be a legal caballo on the table.
 
-```ts
-type RouletteBet = {
-  id: string;
-  type: "straight" | "split";
-  numbers: number[];
-  chips: number;
-};
-```
+## 3. Full-sector optimisation
 
-- A straight candidate contains one target number.
-- A split candidate contains exactly two table-adjacent numbers.
-- Illegal physical-neighbour pairs are discarded before optimisation.
-- Configurable zero splits are loaded from casino rules.
-
-## 3. Optimisation priorities
-
-The optimiser uses a small exhaustive search because the candidate set is bounded.
+There is no maximum-chip constraint. The optimiser adds legal bets until **every number in the selected wheel sector is covered**.
 
 Priority order:
 
-1. Generate only legal bets.
-2. Stay within the maximum chip count.
-3. Respect the requested pleno/caballo composition where possible.
-4. Maximise unique target-sector coverage.
-5. Minimise coverage outside the sector.
-6. Penalise accidental overlap.
-7. Prefer central or higher-scoring pockets as a tie-breaker.
-8. Explain impossible requests and return the closest valid option.
+1. Generate only legal table bets.
+2. Cover every target-sector pocket.
+3. Maximise fresh target coverage per chip.
+4. Minimise numbers covered outside the sector.
+5. Penalise accidental overlaps.
+6. Prefer central sector pockets as a tie-breaker.
+7. Use plenos whenever necessary to guarantee completion.
 
-### Equal Coverage
-
-Maximises unique target coverage while keeping effective stake per covered number as even as possible. Overlaps are penalised.
-
-### Weighted Centre
-
-Covers the broader sector but permits deliberate overlap or extra stake on central/high-scoring pockets. Deliberate weighting must be visible to the user.
+Each generated bet uses one chip. The ticket’s chip count is therefore an output of the optimiser.
 
 ## 4. Probability
 
-A fair European wheel has 37 pockets. If a ticket covers `N` unique numbers:
+If a ticket covers `N` unique numbers:
 
 ```
 P(any covered result) = N / 37
 ```
 
-Examples:
+The unique set can be slightly larger than the selected physical sector when a legal table shape necessarily extends beyond it. This is coverage probability, not a prediction.
 
-| Unique pockets | Probability |
-|---:|---:|
-| 9 | 24.32% |
-| 12 | 32.43% |
-| 13 | 35.14% |
+## 5. Cost and returns
 
-This is coverage probability, not a prediction derived from spin history.
+The user selects a chip value of **€5 or €10**.
 
-## 5. Returns
+```
+Ticket cost = chips required × chip value
+```
 
-For a bet with stake `s` chips:
+Gross return per winning chip:
 
-- straight gross return on a hit: `36 × s` (35:1 plus returned stake);
-- split gross return on a hit: `18 × s` (17:1 plus returned stake).
+- pleno: `36 × chip value`;
+- caballo: `18 × chip value`;
+- tercio: `12 × chip value`;
+- cuarta: `9 × chip value`.
 
 For each possible winning number `n`:
 
 ```
-Gross(n) = sum of gross returns for all bets containing n
-Net(n)   = Gross(n) - total ticket stake
+Gross(n) = sum of returns for all winning bets containing n
+Net(n)   = Gross(n) - total ticket cost
 ```
 
-The result can vary across covered numbers because mixed tickets and intentional overlaps do not pay uniformly.
-
-The ticket should therefore report:
-
-- probability of any covered result;
-- best-case net;
-- lowest net among covered results;
-- average net conditional on a covered result;
-- fixed loss when an uncovered number lands.
-
-## 6. Session exposure
-
-```
-Maximum planned exposure = ticket cost × maximum planned spins
-```
-
-Confirmation is blocked when maximum planned exposure exceeds the entertainment budget. Limits cannot automatically increase after losses.
+Because mixed tickets and overlaps can pay differently, the app reports the best net, lowest net among covered results, and the full loss when an uncovered number lands.
