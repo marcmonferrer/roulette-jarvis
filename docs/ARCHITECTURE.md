@@ -4,19 +4,20 @@
 
 ```mermaid
 flowchart TD
-    A["1. Enter spins"] --> B["2. Analyse wheel"]
-    B --> C["3. Choose sector and bets"]
-    C --> D["4. Generate full-coverage ticket"]
+    A["1. Enter spins on cloth"] --> B["2. Analyse wheel"]
+    B --> C["3. Configure and preview chips"]
+    C --> D["4. Lock visual ticket"]
 ```
 
 ## System boundaries
 
 | Layer | Responsibility |
 |---|---|
-| Presentation | Mobile steps, wheel, keypad, configuration, ticket and outcomes |
+| Presentation | Mobile steps, physical wheel, interactive cloth, configuration, visual ticket and outcomes |
 | Local state | Spin history, sector size, betting style and chip value |
 | Wheel engine | European order, circular distance, heat and 12/14/16-pocket scoring |
 | Betting engine | Legal plenos, caballos, tercios, cuartas and full-sector coverage |
+| Table geometry | Converts every legal bet into an exact chip coordinate on the roulette cloth |
 | Maths engine | Chips required, ticket cost, probability and net results |
 | Rules configuration | Casino-specific zero splits and future variants |
 
@@ -36,6 +37,24 @@ This model supports circular distance, neighbour weighting, heatmap placement, a
 
 The second model validates legal table shapes. A physical-wheel neighbour pair is not automatically a legal caballo.
 
+The same table model powers two interfaces:
+
+- the first-screen betting cloth, where numbered pockets act as one-tap spin-entry controls;
+- the live and final ticket maps, where recommended chips are placed on exact betting positions.
+
+## Chip-placement geometry
+
+Each legal bet is translated from numbers into a visual anchor:
+
+| Bet type | Visual anchor |
+|---|---|
+| Pleno | Centre of the selected number cell |
+| Caballo | Midpoint of the shared boundary between two cells |
+| Tercio | Centre of the outer edge shared by a legal three-number row |
+| Cuarta | Intersection shared by four adjacent number cells |
+
+The renderer then draws a numbered chip at that anchor and prints the selected €5 or €10 value on it. Because placement is derived from the validated bet definition, the visual map and exact-bets list cannot silently disagree.
+
 ## Optimiser contract
 
 Inputs:
@@ -47,6 +66,7 @@ Inputs:
 Outputs:
 
 - legal bet list;
+- visual chip coordinates for the live cloth;
 - automatically calculated chips required;
 - total cost;
 - selected sector and all unique covered numbers;
@@ -59,7 +79,10 @@ The optimiser cannot stop early: plenos provide a guaranteed legal fallback unti
 1. Circular sectors wrap correctly.
 2. All generated caballos, tercios, and cuartas are legal.
 3. Every selected sector pocket is covered.
-4. Chip count equals the number of one-chip bets.
-5. Cost is correct for both chip values.
-6. Every pocket produces the correct gross return and net result.
-7. Mobile controls remain usable at narrow viewport widths.
+4. Every bet type maps to the correct cloth anchor.
+5. Visual chips and the exact-bets list remain in the same order.
+6. Chip value changes update every rendered chip.
+7. Chip count equals the number of one-chip bets.
+8. Cost is correct for both chip values.
+9. Every pocket produces the correct gross return and net result.
+10. Mobile controls and chip labels remain readable at narrow viewport widths.
